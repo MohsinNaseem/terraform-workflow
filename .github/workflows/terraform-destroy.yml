@@ -61,21 +61,9 @@ jobs:
         working-directory: ${{ inputs.main-repo }}/${{ inputs.folder }}
         run: terraform plan -destroy
 
-  approval:
-    name: Manual Approval
-    needs: [plan]
-    if: ${{ inputs.environment != 'live' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: destroy-approval
-
-    steps:
-      - name: Waiting for approval
-        run: echo "Approved. Continuing to destroy."
-
   destroy:
     name: Destroy resources on ${{ inputs.environment }} environment
-    needs: [approval]
+    needs: [plan]
     if: ${{ inputs.environment != 'live' }}
     runs-on: ubuntu-latest
     permissions:
