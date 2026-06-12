@@ -75,7 +75,7 @@ jobs:
 
   destroy:
     name: Destroy resources on ${{ inputs.environment }} environment
-    needs: [plan]
+    needs: [approval]
     if: ${{ inputs.environment != 'live' }}
     runs-on: ubuntu-latest
     permissions:
