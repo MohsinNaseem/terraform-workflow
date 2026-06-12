@@ -1,0 +1,104 @@
+name: Terraform Workflow Stable Management Account
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to apply changes
+        required: true
+        type: string
+      main-repo:
+        description: main repository to be used
+        required: true
+        type: string
+
+jobs:
+  plan:
+    name: Validate and plan changes on ${{ inputs.environment }} environment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Main code
+        uses: actions/checkout@v4.2.2
+        with:
+          path: ${{ inputs.main-repo }}
+
+      - name: Pull the repo changes done on the previous job
+        working-directory: ${{ inputs.main-repo }}
+        run: git pull
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: arn:aws:iam::148221445737:role/automation/GitHubRole-opsai
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.main-repo }}
+        run: terraform init
+
+      - name: Terraform select workspace
+        working-directory: ${{ inputs.main-repo }}
+        run: |
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }}
+          echo "TF_WORKSPACE=${{ inputs.environment }}" >> $GITHUB_ENV
+
+      - name: Terraform Validate
+        working-directory: ${{ inputs.main-repo }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ${{ inputs.main-repo }}
+        run: terraform plan
+
+  apply:
+    name: Apply changes on ${{ inputs.environment }} environment
+    needs: [plan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout Main code
+        uses: actions/checkout@v4.2.2
+        with:
+          path: ${{ inputs.main-repo }}
+
+      - name: Pull the repo changes done on the previous job
+        working-directory: ${{ inputs.main-repo }}
+        run: git pull
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: arn:aws:iam::148221445737:role/automation/GitHubRole-opsai
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.main-repo }}
+        run: terraform init
+
+      - name: Terraform select workspace
+        working-directory: ${{ inputs.main-repo }}
+        run: |
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }}
+          echo "TF_WORKSPACE=${{ inputs.environment }}" >> $GITHUB_ENV
+
+      - name: Terraform Apply
+        working-directory: ${{ inputs.main-repo }}
+        run: terraform apply --auto-approve
